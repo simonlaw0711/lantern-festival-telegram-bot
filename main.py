@@ -1,6 +1,7 @@
 from telegram import Bot, Update, ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton, ParseMode
 from telegram.ext import Updater, CommandHandler, CallbackContext, MessageHandler, Filters, ConversationHandler
-from telegram.error import BadRequest
+from telegram.error import BadRequest, RetryAfter
+from telegram.utils.request import Request
 from sqlalchemy import create_engine, Column, String, Enum, Integer, BigInteger, ForeignKey, DateTime, Boolean, Index
 from sqlalchemy.orm import sessionmaker, declarative_base, relationship, backref
 from sqlalchemy.sql import func
@@ -10,13 +11,15 @@ import logging
 import random
 import string
 import os
+import time
 from dotenv import load_dotenv
 from datetime import datetime
 
 load_dotenv()
 
 # Setup the bot
-bot = Bot(token=os.getenv('BOT_TOKEN'))
+request = Request(con_pool_size=20)
+bot = Bot(token=os.getenv('BOT_TOKEN'), request=request)
 admin_group_info = bot.getChat(chat_id=os.getenv('ADMIN_GROUP_ID'))
 group_info = bot.getChat(chat_id=os.getenv('GROUP_ID'))
 channel_info = bot.getChat(chat_id=os.getenv('CHANNEL_NAME'))
@@ -49,6 +52,7 @@ class User(Base):
     wallet_address = Column(String(255), nullable=True)
     is_subscribed = Column(Boolean, default=False)
     message_id = Column(BigInteger, nullable=True)
+    update_count = Column(Integer, default=0)
 
     __table_args__ = (Index('idx_username','username'),)
 
@@ -259,30 +263,38 @@ def get_invitees_stats(user_id):
 def send_group_message(user_id, invitees_subscribed_count, invitees_subscribed_rate, invitees_wish_count, invitees_wish_rate) -> None:
     with session_scope() as session:
         user = session.query(User).filter_by(user_id=user_id).first()
+        message = None
         text_message = f'用户：<a href="tg://user?id={user.user_id}">{user.username}</a>\n用户id：<code>{user.user_id}</code>\n愿望：<b>{user.wish}</b>\n钱包地址：<code>{user.wallet_address}</code>\n最后更新时间：{datetime.now():%Y-%m-%d %H:%M}\n目前邀请人数：{user.invitees_count}\n邀请者关注频道人数：{invitees_subscribed_count}\n邀请者关注频道率：{invitees_subscribed_rate:.0%}\n邀请者写下愿望人数：{invitees_wish_count}\n邀请者写下愿望率：{invitees_wish_rate:.0%}'
-        if not user.message_id:
-            message = bot.send_message(chat_id=admin_group_info.id, text=text_message, parse_mode=ParseMode.HTML)
-            user.message_id = message.message_id
-            session.commit()
-        else:
-            try:
+
+        try:
+            if not user.message_id:
+                message = bot.send_message(chat_id=admin_group_info.id, text=text_message, parse_mode=ParseMode.HTML)
+                user.message_id = message.message_id
+                session.commit()
+            else:
                 if user.wish_claimed:
                     message = bot.edit_message_text(chat_id=admin_group_info.id, message_id=user.message_id, parse_mode=ParseMode.HTML, text=text_message + '\n\n[✨愿望已实现]')
                 else:
-                    message = bot.edit_message_text(chat_id=admin_group_info.id, message_id=user.message_id, parse_mode=ParseMode.HTML, text=text_message)
-            except BadRequest as e:
-                if 'Message is not modified' in str(e):
-                    pass 
-                else:
-                    raise 
-
+                    if user.update_count < 3:
+                        message = bot.edit_message_text(chat_id=admin_group_info.id, message_id=user.message_id, parse_mode=ParseMode.HTML, text=text_message)
+                        user.update_count += 1
+                        session.commit()
+                    else:
+                        message = bot.send_message(chat_id=admin_group_info.id, parse_mode=ParseMode.HTML, text=text_message)
+                        user.message_id = message.message_id
+                        user.update_count = 0
+                        session.commit()
+        except BadRequest as e:
+            if 'Message is not modified' in str(e):
+                pass 
+            else:
+                raise e
         return message
 
 def get_link_keyboard_button():
-    group_invite_link = bot.exportChatInviteLink(chat_id=group_info.id)
     keyboard = [
         [InlineKeyboardButton("点我关注频道后参加活动", url=channel_info.invite_link)],
-        [InlineKeyboardButton("愿望成真公示群", url=group_invite_link)]
+        [InlineKeyboardButton("愿望成真公示群", url="https://t.me/+GM7dYLjgeyg1ZmE0")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     return reply_markup
@@ -379,18 +391,21 @@ def is_user_subscribed(user_id):
         return False
 
 def format_poem_vertically_with_side_decorations_and_spacing(poem, spacing=1):
-    # Remove punctuation
+    # Define punctuation
     punctuation = "，、。！？；：「」『』（）《》【】"
+    
+    # Find the length of the first line before any punctuation
+    first_line_length = next((i for i, char in enumerate(poem) if char in punctuation), len(poem))
+    
+    # Calculate column_height
+    column_height = first_line_length
+    
+    # Remove punctuation
     for p in punctuation:
         poem = poem.replace(p, "")
     
-    # Calculate optimal column height
+    # Calculate the number of characters and columns
     num_chars = len(poem)
-    column_height = int((num_chars ** 0.5))
-    if num_chars % column_height != 0:
-        column_height += 1  # Adjust column height to fit all characters
-    
-    # Calculate the number of columns
     num_columns = -(-num_chars // column_height)
     
     # Initialize the grid with full-width spaces
@@ -407,10 +422,10 @@ def format_poem_vertically_with_side_decorations_and_spacing(poem, spacing=1):
     formatted_poem_lines_with_decor = [
         '🏮' + space.join(row) + '🏮' for row in grid
     ]
-
+    
     # Combine everything into one string
     formatted_poem_with_side_decor = '\n'.join(formatted_poem_lines_with_decor)
-
+    
     return formatted_poem_with_side_decor
 
 def start(update: Update, context: CallbackContext) -> None:    

@@ -25,21 +25,26 @@ poem_lines = [
             "杨柳轻扬春意早，十里长街闹元宵。扭动腰肢挑花灯，耄耋童子齐欢笑。糯米揉团蜜馅包，团团圆圆吃到饱。叙过家常侃大山，大家一起乐元宵。"
         ]
 
+
 poem = random.choice(poem_lines)
+# poem = "正月十五良宵到，花灯吐艳把春报；一年初望明月照，汤圆滚烫闹良宵。"
 
 def format_poem_vertically_with_side_decorations_and_spacing(poem, spacing=1):
-    # Remove punctuation
+    # Define punctuation
     punctuation = "，、。！？；：「」『』（）《》【】"
+    
+    # Find the length of the first line before any punctuation
+    first_line_length = next((i for i, char in enumerate(poem) if char in punctuation), len(poem))
+    
+    # Calculate column_height
+    column_height = first_line_length
+    
+    # Remove punctuation
     for p in punctuation:
         poem = poem.replace(p, "")
     
-    # Calculate optimal column height
+    # Calculate the number of characters and columns
     num_chars = len(poem)
-    column_height = int((num_chars ** 0.5))
-    if num_chars % column_height != 0:
-        column_height += 1  # Adjust column height to fit all characters
-    
-    # Calculate the number of columns
     num_columns = -(-num_chars // column_height)
     
     # Initialize the grid with full-width spaces
@@ -56,12 +61,12 @@ def format_poem_vertically_with_side_decorations_and_spacing(poem, spacing=1):
     formatted_poem_lines_with_decor = [
         '🏮' + space.join(row) + '🏮' for row in grid
     ]
-
+    
     # Combine everything into one string
     formatted_poem_with_side_decor = '\n'.join(formatted_poem_lines_with_decor)
-
+    
     return formatted_poem_with_side_decor
 
 # Adjust the spacing parameter as desired; 2 for example adds more space
-formatted_poem = format_poem_vertically_with_side_decorations_and_spacing(poem, spacing=1)
+formatted_poem = format_poem_vertically_with_side_decorations_and_spacing(poem, spacing=2)
 print(formatted_poem)
