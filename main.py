@@ -68,7 +68,7 @@ class Invite(Base):
     user = relationship('User', foreign_keys=[user_id], backref=backref('invites', uselist=True))
     invitee = relationship('User', foreign_keys=[invitee_id], backref=backref('invited_by', uselist=True))
 
-DATABASE_URL = f"mysql+mysqlconnector://{os.getenv('MYSQL_USERNAME')}:{os.getenv('MYSQL_PASSWORD')}@{os.getenv('MYSQL_HOST')}/{os.getenv('MYSQL_DATABASE')}?charset=utf8mb4"
+DATABASE_URL = f"mysql+mysqlconnector://{os.getenv('MYSQL_USERNAME')}:{os.getenv('MYSQL_PASSWORD')}@{os.getenv('MYSQL_HOST')}/{os.getenv('MYSQL_DATABASE')}?charset=utf8mb4"  
 engine = create_engine(DATABASE_URL)
 Base.metadata.create_all(engine)
 
@@ -133,7 +133,7 @@ def generate_unique_link(user_id: int) -> str:
     bot_username = bot.getMe().username
     return f'https://t.me/{bot_username}?start={user_id}_{unique_str}'
 
-def subscribe_channel_message(start_message: bool = False):    
+def subscribe_channel_message(start_message: bool = False):
     message = f"请先加入👉{channel_info.title}频道👈"
     if start_message:
         message = f"📣恭喜，您的帐号创建成功！\n\n" + message
@@ -164,7 +164,7 @@ def receive_wallet_address(update: Update, context: CallbackContext) -> int:
             user.wallet_address = wallet_address
             session.commit()
             update.message.reply_text('钱包地址已绑定。谢谢!')
-            
+
     return ConversationHandler.END
 
 def make_wish_come_true(update: Update, context: CallbackContext) -> None:
@@ -232,7 +232,7 @@ def make_wish(update: Update, context: CallbackContext) -> int:
                     inviter = session.query(User).filter_by(user_id=invite.user_id).first()
                     invitees_subscribed_count, invitees_subscribed_rate, invitees_wish_count, invitees_wish_rate = get_invitees_stats(inviter.user_id)
                     send_group_message(inviter.user_id, invitees_subscribed_count, invitees_subscribed_rate, invitees_wish_count, invitees_wish_rate)
-                        
+
             if user.wallet_address:
                 if user.wish:
                     update.message.reply_text(f'目前愿望：<i>{user.wish}</i>\n请写下你新的愿望\n或使用/cancel取消', parse_mode=ParseMode.HTML)
@@ -286,7 +286,7 @@ def send_group_message(user_id, invitees_subscribed_count, invitees_subscribed_r
                         session.commit()
         except BadRequest as e:
             if 'Message is not modified' in str(e):
-                pass 
+                pass
             else:
                 raise e
         return message
@@ -377,7 +377,7 @@ def is_user_subscribed(user_id):
     try:
         chat_member = bot.get_chat_member(chat_id=os.getenv('CHANNEL_NAME'), user_id=user_id)
         is_subscribed = chat_member.status not in ('left', 'kicked')
-        
+
         # Update the user's status in the database
         with session_scope() as session:
             user = session.query(User).filter_by(user_id=user_id).first()
@@ -393,42 +393,42 @@ def is_user_subscribed(user_id):
 def format_poem_vertically_with_side_decorations_and_spacing(poem, spacing=1):
     # Define punctuation
     punctuation = "，、。！？；：「」『』（）《》【】"
-    
+
     # Find the length of the first line before any punctuation
     first_line_length = next((i for i, char in enumerate(poem) if char in punctuation), len(poem))
-    
+
     # Calculate column_height
     column_height = first_line_length
-    
+
     # Remove punctuation
     for p in punctuation:
         poem = poem.replace(p, "")
-    
+
     # Calculate the number of characters and columns
     num_chars = len(poem)
     num_columns = -(-num_chars // column_height)
-    
+
     # Initialize the grid with full-width spaces
     grid = [['\u3000' for _ in range(num_columns)] for _ in range(column_height)]
-    
+
     # Fill the grid with characters
     for i, char in enumerate(poem):
         col = num_columns - 1 - i // column_height
         row = i % column_height
         grid[row][col] = char
-    
+
     # Add spacing between lines and add lanterns to the left and right
     space = '\u3000' * spacing  # Use full-width space for spacing
     formatted_poem_lines_with_decor = [
         '🏮' + space.join(row) + '🏮' for row in grid
     ]
-    
+
     # Combine everything into one string
     formatted_poem_with_side_decor = '\n'.join(formatted_poem_lines_with_decor)
-    
+
     return formatted_poem_with_side_decor
 
-def start(update: Update, context: CallbackContext) -> None:    
+def start(update: Update, context: CallbackContext) -> None:
     user_id = update.effective_user.id
     user_name = update.effective_user.full_name
     username = update.effective_user.username
@@ -473,7 +473,6 @@ def start(update: Update, context: CallbackContext) -> None:
                     session.commit()
                     invitees_subscribed_count, invitees_subscribed_rate, invitees_wish_count, invitees_wish_rate = get_invitees_stats(invite_user_id)
                     send_group_message(invite_user_id, invitees_subscribed_count, invitees_subscribed_rate, invitees_wish_count, invitees_wish_rate)
-                    bot.send_message(chat_id=invite_user_id, text=f'你邀请了一个新成员: {user_name}')
                 else:
                     bot.send_message(chat_id=user_id, text=f'你已经被邀请过了')
 
@@ -514,7 +513,7 @@ def start(update: Update, context: CallbackContext) -> None:
         # Prepare the welcome message with the italicized poem line
         welcome_message_1 = italicized_random_line
         welcome_message_2 = f'欢迎参加🏮元宵节花灯庆祝活动！祝你🏮元宵节快乐！'
-        update.message.reply_text(welcome_message_1, parse_mode=ParseMode.MARKDOWN, 
+        update.message.reply_text(welcome_message_1, parse_mode=ParseMode.MARKDOWN,
         reply_markup=get_link_keyboard_button())
         update.message.reply_text(welcome_message_2, reply_markup=get_keyboard())
 
@@ -526,7 +525,7 @@ def main() -> None:
     dp = updater.dispatcher
 
     # Register command handlers
-    dp.add_handler(CommandHandler("start", start)) 
+    dp.add_handler(CommandHandler("start", start))
     dp.add_handler(MessageHandler(Filters.regex('^🥣我的邀请$'), get_my_invitees))
     dp.add_handler(make_wish_handler)
     dp.add_handler(bind_wallet_address_handler)
@@ -536,4 +535,4 @@ def main() -> None:
     updater.idle()
 
 if __name__ == '__main__':
-    main()
+    main()#
