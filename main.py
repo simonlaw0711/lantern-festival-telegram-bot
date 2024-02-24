@@ -197,14 +197,14 @@ def wish_come_true(update: Update, context: CallbackContext) -> int:
         if user:
             user.wish_claimed = True
             session.commit()
-            winner_message = '🎉恭喜用户 @{0} 愿望成真\n\n🎁 您的愿望为 *{1}*\n💬备注：{2}\n\n🧧中奖地址：`{3}`'.format(user.username, user.wish, remark if remark else '', user.wallet_address if user.wallet_address else '暂未提交')
+            winner_message = '🎉恭喜用户 <a href="tg://user?id={0}">@{1}</a> 愿望成真\n\n🎁 您的愿望为 <b>{2}</b>\n💬备注：{3}\n\n🧧中奖地址：<code>{4}</code>'.format(user.user_id, user.username, user.wish, remark if remark else '', user.wallet_address if user.wallet_address else '暂未提交')
             winner_keyboard = [
                 [InlineKeyboardButton("📢需关注频道才能参与活动", url=channel_info.invite_link)],
                 [InlineKeyboardButton("山川公群", url=f"https://t.me/scgq"), InlineKeyboardButton("山川担保", url=f"https://t.me/scdb")]
             ]
             reply_markup = InlineKeyboardMarkup(winner_keyboard)
             for id in [user_id, group_info.id]:
-                response = bot.send_message(chat_id=id, parse_mode=ParseMode.MARKDOWN_V2,text=winner_message, reply_markup=reply_markup)
+                response = bot.send_message(chat_id=id, parse_mode=ParseMode.HTML,text=winner_message, reply_markup=reply_markup)
                 # Log the send message results
                 logger.info(f"Message sent to {id}: {response}")
             invitees_subscribed_count, invitees_subscribed_rate, invitees_wish_count, invitees_wish_rate = get_invitees_stats(user_id)
@@ -275,8 +275,8 @@ def send_group_message(user_id, invitees_subscribed_count, invitees_subscribed_r
                 if user.wish_claimed:
                     message = bot.edit_message_text(chat_id=admin_group_info.id, message_id=user.message_id, parse_mode=ParseMode.HTML, text=text_message + '\n\n[✨愿望已实现]')
                 else:
-                    if user.update_count < 3:
-                        message = bot.edit_message_text(chat_id=admin_group_info.id, message_id=user.message_id, parse_mode=ParseMode.HTML, text=text_message)
+                    if user.update_count < 5:
+                        # message = bot.edit_message_text(chat_id=admin_group_info.id, message_id=user.message_id, parse_mode=ParseMode.HTML, text=text_message)
                         user.update_count += 1
                         session.commit()
                     else:
