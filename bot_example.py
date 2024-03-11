@@ -9,11 +9,6 @@ import logging
 import random
 from datetime import datetime, timedelta
 
-# Setup the bot
-bot = Bot(token='6628775621:AAEqxpdHCyA871lzElVaRh99l9ksDi4UXnY') # Test Bot
-# bot = Bot(token='6524274145:AAF80QHBzEmbyC8GLVNw7N-iH383yAyBmBU') # Production
-# group_chat_id = '-4076578089' # Test Group
-group_chat_id = '-1001903580245' # Production
 
 # Setup scheduler
 scheduler = BackgroundScheduler()
